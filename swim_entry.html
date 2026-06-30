@@ -1,0 +1,1431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swim Parent Tracker</title>
+    <!-- Tailwind CSS Stable Production CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js and Tesseract.js for in-browser OCR -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+    <script>
+        if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        }
+    </script>
+    <style>
+        html { scroll-behavior: smooth; }
+    </style>
+</head>
+<body class="text-slate-800 bg-slate-50 pb-24">
+
+    <!-- Header Navigation Bar -->
+    <header class="bg-blue-600 text-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <h1 class="text-xl font-bold tracking-tight">Swim Parent Tracker</h1>
+            </div>
+            
+            <nav class="flex bg-blue-700 p-1 rounded-lg shadow-inner w-full sm:w-auto overflow-x-auto gap-1 items-center">
+                <a href="#section-meet-info" class="flex-1 sm:flex-none text-center whitespace-nowrap px-2.5 py-1.5 rounded-md text-xs font-medium transition text-blue-100 hover:bg-blue-600 hover:text-white">
+                    1. Meet Info
+                </a>
+                <a href="#section-stage-swimmer" class="flex-1 sm:flex-none text-center whitespace-nowrap px-2.5 py-1.5 rounded-md text-xs font-medium transition text-blue-100 hover:bg-blue-600 hover:text-white">
+                    2. Stage Lineup
+                </a>
+                <a href="#section-live-input" class="flex-1 sm:flex-none text-center whitespace-nowrap px-2.5 py-1.5 rounded-md text-xs font-medium transition text-blue-100 hover:bg-blue-600 hover:text-white flex items-center justify-center gap-1">
+                    <span class="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                    3. Live Input
+                </a>
+                <div class="h-4 w-px bg-blue-500 mx-1 hidden sm:block"></div>
+                <button onclick="appToggleMatrixModal(true)" class="flex-1 sm:flex-none text-center bg-blue-50 text-blue-700 font-bold text-xs px-3 py-1.5 rounded-md shadow-sm hover:bg-blue-100 transition whitespace-normal break-words">
+                    📋 Qualifying Times & Goals
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="max-w-3xl mx-auto px-4 py-6 space-y-8">
+        <!-- Simple Tabs (mobile-friendly show/hide) -->
+        <div id="app-tabs" class="bg-white rounded-xl p-2 shadow-sm mb-4">
+            <div class="flex gap-2 overflow-x-auto">
+                <button id="tab-meet" class="tab-btn relative flex-1 text-sm font-bold px-3 py-2 rounded-md bg-white text-blue-600">1. Meet Info</button>
+                <button id="tab-heat" class="tab-btn relative flex-1 text-sm font-bold px-3 py-2 rounded-md text-slate-600">2. Heat & Standards</button>
+                <button id="tab-live" class="tab-btn relative flex-1 text-sm font-bold px-3 py-2 rounded-md text-slate-600">3. Live Entry</button>
+            </div>
+        </div>
+        
+        <!-- SECTION 1: MEET ENVIRONMENT & HEAT SHEET UPLOAD -->
+        <section id="section-meet-info" class="scroll-mt-20 space-y-4">
+            <div class="border-l-4 border-blue-600 pl-2">
+                <h2 class="text-lg font-black text-slate-900 tracking-tight">1. Meet Environment & Setup</h2>
+            </div>
+
+            <!-- Meet Details Block -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                <div class="flex flex-col gap-2 border-b border-slate-100 pb-3">
+                    <h3 class="text-sm font-bold text-slate-700">Active Racing Season</h3>
+                    <div class="flex bg-slate-100 p-1 rounded-lg border border-slate-200 w-full justify-between gap-1">
+                        <button id="mt-summer" onclick="appSetMeetType('Summer')" class="meet-type-btn text-xs font-bold flex-1 py-2 rounded-md transition bg-white text-blue-600 shadow-sm">Summer (GSSL)</button>
+                        <button id="mt-excel" onclick="appSetMeetType('Excel')" class="meet-type-btn text-xs font-bold flex-1 py-2 rounded-md transition text-slate-600 hover:text-slate-900">Excel (Winter)</button>
+                        <button id="mt-hs" onclick="appSetMeetType('High School')" class="meet-type-btn text-xs font-bold flex-1 py-2 rounded-md transition text-slate-600 hover:text-slate-900">High School</button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Meet Name</label>
+                        <input type="text" id="meet-name" value="Summer Opener" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Location / Pool</label>
+                        <input type="text" id="meet-location" value="Aqua Club" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Date</label>
+                        <input type="date" id="meet-date" value="2026-06-14" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Heat Sheet Document Processing Zone -->
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                <div>
+                    <h3 class="text-sm font-bold text-slate-900">Import Official Heat Sheets</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">Upload a PDF copy or snap photos of the heat sheet on your phone to parse lineup details.</p>
+                </div>
+
+                <div onclick="document.getElementById('file-upload-input').click()" class="border-2 border-dashed border-slate-300 hover:border-blue-500 bg-slate-50 rounded-xl p-6 text-center cursor-pointer transition">
+                    <input type="file" id="file-upload-input" onchange="appHandleFileSelection(this.files)" accept="image/*,application/pdf" multiple class="hidden">
+                    <div class="space-y-2 pointer-events-none">
+                        <div class="text-blue-500 flex justify-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 002-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <p class="text-xs font-semibold text-slate-700">Tap to snap a photo or pick documents</p>
+                    </div>
+                </div>
+
+                <div id="processing-feedback" class="hidden bg-blue-50 border border-blue-200 p-4 rounded-xl flex flex-col gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="h-4 w-4 rounded-full border-2 border-blue-600 border-t-transparent animate-spin"></div>
+                        <div class="text-xs font-medium text-blue-800">Scanning document layout targets...</div>
+                    </div>
+                    <div id="upload-status" class="text-xs text-blue-700">Preparing OCR...</div>
+                </div>
+
+                <div id="upload-manifest-box" class="hidden bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs">
+                    <div class="font-bold text-slate-400 uppercase tracking-wider text-[9px] mb-1">Imported Log:</div>
+                    <ul id="manifest-list" class="list-disc pl-4 space-y-1 font-mono text-slate-600"></ul>
+                </div>
+
+                <div class="mt-3 flex gap-2">
+                    <label class="text-xs bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md cursor-pointer">
+                        Load OCR JSON<input id="ocr-json-input" type="file" accept="application/json,.json" onchange="appHandleOcrJsonFile(this.files)" class="hidden">
+                    </label>
+                    <button onclick="appOpenOcrReviewModal()" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md">Review OCR & Import</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: HEAT SHEET LINEUP STAGING -->
+        <section id="section-stage-swimmer" class="scroll-mt-20 space-y-4">
+            <div class="border-l-4 border-blue-600 pl-2">
+                <h2 class="text-lg font-black text-slate-900 tracking-tight">2. Heat Sheet Lineup Staging</h2>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Select Swimmer</label>
+                            <select id="stage-swimmer" onchange="appHandleSwimmerSelectionChange()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-800">
+                                <option value="Beck">Beck</option>
+                                <option value="Kenzie">Kenzie</option>
+                                <option value="__custom_friend__">👤 + Add a Friend...</option>
+                            </select>
+                        </div>
+                        <div id="friend-input-container" class="hidden transition-all duration-200">
+                            <label class="block text-[10px] font-bold uppercase tracking-wider text-blue-500 mb-1">Friend / Custom Name</label>
+                            <input type="text" id="stage-friend-name" placeholder="Enter friend's name..." class="w-full bg-blue-50/50 border border-blue-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Event Discipline</label>
+                        <select id="stage-event-dropdown" onchange="appUpdateActiveBenchmarks()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800">
+                            <!-- Loaded Dynamically -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Event #</label>
+                        <input type="number" id="stage-event-num" placeholder="14" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Heat</label>
+                        <input type="number" id="stage-heat" min="1" value="1" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1">Lane</label>
+                        <input type="number" id="stage-lane" min="1" max="8" value="4" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200 text-center">
+                    <div>
+                        <div class="text-[10px] font-bold uppercase text-slate-400">Seed Time</div>
+                        <input type="text" id="stage-seed" placeholder="NT" class="w-full text-center bg-white border border-slate-200 rounded px-2 py-1 text-xs font-mono mt-1">
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold uppercase text-slate-400">Database PR</div>
+                        <div id="stage-pr" class="text-xs font-mono font-bold text-emerald-700 mt-2">—</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold uppercase text-slate-400">Target Standard</div>
+                        <div id="stage-cut" class="text-xs font-mono font-bold text-blue-700 mt-2">—</div>
+                    </div>
+                </div>
+
+                <button onclick="appCommitToStagingQueue()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm py-3 rounded-lg shadow-sm transition">
+                    Add to Race Schedule
+                </button>
+            </div>
+
+            <!-- Queue Schedule Table View -->
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Today's Staged Schedule Queue</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead>
+                            <tr class="border-b border-slate-200 text-slate-400 font-medium">
+                                <th class="py-2">Swimmer</th>
+                                <th class="py-2">Event</th>
+                                <th class="py-2 text-center">H / L</th>
+                                <th class="py-2 text-center">Remove</th>
+                            </tr>
+                        </thead>
+                        <tbody id="queue-table-body" class="divide-y divide-slate-100 text-slate-700 font-medium">
+                            <tr id="empty-queue-row">
+                                <td colspan="4" class="py-6 text-center text-slate-400 italic bg-slate-50 rounded-lg">
+                                    No races staged yet. Type above or upload a heat sheet document.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: LIVE INPUT TRACKING BOARD -->
+        <section id="section-live-input" class="scroll-mt-20 space-y-4">
+            <div class="border-l-4 border-blue-600 pl-2">
+                <h2 class="text-lg font-black text-slate-900 tracking-tight">3. Live Scoreboard Tracker Console</h2>
+            </div>
+
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">Select Active Swimmer on the Block</label>
+                <select id="mobile-lineup-selector" onchange="appHandleRaceSelectionChange()" class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-800">
+                    <option value="">— Choose Staged Swimmer From Lineup —</option>
+                </select>
+            </div>
+
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-4">
+                <div class="border-b border-slate-100 pb-3">
+                    <span id="active-tag" class="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">No Active Race</span>
+                    <h3 id="active-swimmer-name" class="text-xl font-black text-slate-900 mt-1 tracking-tight">Select Race Lineup</h3>
+                    <p id="active-event-details" class="text-xs text-slate-500 font-medium mt-0.5">Benchmarks load automatically when race is selected</p>
+                </div>
+
+                <div class="bg-slate-50 p-3 rounded-lg border border-slate-100 grid grid-cols-3 gap-2 text-center">
+                    <div>
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Seed Time</div>
+                        <div id="active-seed-val" class="text-xs font-bold font-mono text-slate-700 mt-0.5">--:--.--</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Personal PR</div>
+                        <div id="active-pr-val" class="text-xs font-bold font-mono text-emerald-600 mt-0.5">--:--.--</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Target Standard</div>
+                        <div id="active-cut-val" class="text-xs font-bold font-mono text-blue-600 mt-0.5">--:--.--</div>
+                    </div>
+                </div>
+
+                <!-- LIVE CELEBRATION DISCOVER BADGE -->
+                <div id="celebration-banner" class="hidden p-3 rounded-xl text-center font-bold text-sm shadow-sm transition-all duration-200"></div>
+
+                <div class="bg-blue-600 border border-blue-700 rounded-xl p-4 flex flex-col gap-3 shadow-md">
+                    <div>
+                        <div class="flex justify-between items-end mb-1.5">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-blue-100">
+                                Scoreboard Final Time
+                            </label>
+                            
+                            <!-- MEET MOBILE TOGGLE BUTTON -->
+                            <a href="meetmobile://" class="text-[10px] font-bold bg-blue-500 hover:bg-blue-400 text-white px-2 py-1 rounded shadow-sm transition flex items-center gap-1 border border-blue-400/50">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                Open Meet Mobile
+                            </a>
+                        </div>
+                        <input type="text" id="board-final-time" oninput="appAnalyzeLivePerformanceMetric()" placeholder="00:00.00" class="w-full bg-white border border-blue-400 font-mono font-black text-2xl text-blue-950 text-center rounded-lg py-3 focus:outline-none focus:ring-4 focus:ring-blue-300 transition shadow-inner">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-blue-100 mb-1">Quick Split / Race Notes</label>
+                        <input type="text" id="race-final-notes" placeholder="e.g., solid turns, missed finish glide" class="w-full bg-white border border-blue-300 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 pt-1">
+                    <button id="ctrl-reset-btn" onclick="appResetLiveConsoleFields()" disabled class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs uppercase py-2.5 rounded-lg transition disabled:opacity-50">
+                        Clear
+                    </button>
+                    <button id="ctrl-sync-btn" onclick="appSubmitCloudPayload()" disabled class="bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-40 font-bold text-xs uppercase py-2.5 rounded-lg shadow-sm transition">
+                        Sync to Google Sheet
+                    </button>
+                    <button id="ctrl-endmeet-btn" onclick="appEndMeetPrompt()" class="bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase py-2.5 rounded-lg shadow-sm transition">
+                        End Meet
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- FIXED OVERLAY MODAL: QUALIFYING TIMES DESK -->
+    <div id="matrix-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-[100] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5 shadow-xl space-y-6 border border-slate-200">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <div>
+                    <h3 class="text-base font-black text-slate-900 tracking-tight">Qualifying Times & Goals Database</h3>
+                    <p class="text-[11px] text-slate-400 font-medium">Aligned directly with active Google Sheet configurations</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input id="goals-url-input" placeholder="Paste Google Sheet CSV export URL" class="text-xs px-2 py-1 rounded-md border border-slate-200" />
+                    <button onclick="appFetchGoalsFromUrl()" class="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-md">Fetch</button>
+                    <label class="text-xs bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-md cursor-pointer">
+                        Upload CSV<input id="goals-file-input" type="file" accept="text/csv,.csv" onchange="appLoadGoalsFromFile(this.files)" class="hidden">
+                    </label>
+                    <button onclick="appToggleMatrixModal(false)" class="text-slate-400 hover:text-slate-600 font-bold text-lg p-1.5 rounded-lg hover:bg-slate-100 transition">✕</button>
+                </div>
+            </div>
+            
+            <div class="space-y-6">
+                <!-- KENZIE SHEET PROFILE -->
+                <div>
+                    <span class="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-xs uppercase tracking-wider">Kenzie's Standards Profile</span>
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl mt-2">
+                        <table class="w-full text-left text-xs divide-y divide-slate-200">
+                            <thead class="bg-slate-50 font-bold text-slate-600 text-[10px] uppercase tracking-wider">
+                                <tr>
+                                    <th class="p-2.5 bg-slate-100/70">Discipline</th>
+                                    <th class="p-2.5 text-center">PR</th>
+                                    <th class="p-2.5 text-center text-emerald-600">Goal</th>
+                                    <th class="p-2.5 text-center text-blue-600">GSSL</th>
+                                    <th class="p-2.5 text-center text-purple-600">District</th>
+                                    <th class="p-2.5 text-center text-indigo-600">State</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-700 font-mono text-[11px]">
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">50 Yard Free</td><td class="p-2.5 text-center font-bold text-emerald-700">00:31.78</td><td class="p-2.5 text-center text-emerald-700">30.5</td><td class="p-2.5 text-center">00:31.00</td><td class="p-2.5 text-center">00:29.00</td><td class="p-2.5 text-center">00:24.50</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard Free</td><td class="p-2.5 text-center font-bold text-emerald-700">01:09.13</td><td class="p-2.5 text-center text-emerald-700">1:07</td><td class="p-2.5 text-center">01:12.00</td><td class="p-2.5 text-center">01:05.00</td><td class="p-2.5 text-center">00:54.20</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">200 Yard Free</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">02:23.50</td><td class="p-2.5 text-center">01:57.80</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">500 Yard Free</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">06:35.00</td><td class="p-2.5 text-center">05:20.00</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">50 Yard Back</td><td class="p-2.5 text-center font-bold text-emerald-700">00:42.50</td><td class="p-2.5 text-center text-emerald-700">41.3</td><td class="p-2.5 text-center">00:38.00</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-400">—</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard Back</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">01:16.00</td><td class="p-2.5 text-center">00:59.30</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">50 Yard Breast</td><td class="p-2.5 text-center font-bold text-emerald-700">00:43.68</td><td class="p-2.5 text-center text-emerald-700">42.6</td><td class="p-2.5 text-center">00:41.00</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-400">—</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard Breast</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">01:26.00</td><td class="p-2.5 text-center">01:07.70</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">50 Yard Fly</td><td class="p-2.5 text-center font-bold text-emerald-700">00:37.14</td><td class="p-2.5 text-center text-emerald-700">36.4</td><td class="p-2.5 text-center">00:36.00</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-400">—</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard Fly</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">01:15.00</td><td class="p-2.5 text-center">00:58.80</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard IM</td><td class="p-2.5 text-center font-bold text-emerald-700">01:25.69</td><td class="p-2.5 text-center text-emerald-700">1:23</td><td class="p-2.5 text-center">01:20.00</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-400">—</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">200 Yard IM</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">02:45.00</td><td class="p-2.5 text-center">02:12.80</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- BECK SHEET PROFILE -->
+                <div>
+                    <span class="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded shadow-xs uppercase tracking-wider">Beck's Standards Profile</span>
+                    <div class="overflow-x-auto border border-slate-200 rounded-xl mt-2">
+                        <table class="w-full text-left text-xs divide-y divide-slate-200">
+                            <thead class="bg-slate-50 font-bold text-slate-600 text-[10px] uppercase tracking-wider">
+                                <tr>
+                                    <th class="p-2.5 bg-slate-100/70">Discipline</th>
+                                    <th class="p-2.5 text-center">PR</th>
+                                    <th class="p-2.5 text-center text-emerald-600">Goal</th>
+                                    <th class="p-2.5 text-center text-blue-600">GSSL</th>
+                                    <th class="p-2.5 text-center text-purple-600">District</th>
+                                    <th class="p-2.5 text-center text-indigo-600">State</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100 text-slate-700 font-mono text-[11px]">
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">50 Yard Free</td><td class="p-2.5 text-center font-bold text-emerald-700">00:26.21</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center">00:27.00</td><td class="p-2.5 text-center">00:25.00</td><td class="p-2.5 text-center">00:21.80</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard Free</td><td class="p-2.5 text-center font-bold text-emerald-700">00:58.51</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center">01:00.00</td><td class="p-2.5 text-center">00:57.00</td><td class="p-2.5 text-center">00:48.30</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">200 Yard Free</td><td class="p-2.5 text-center font-bold text-emerald-700">02:06.24</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">02:10.00</td><td class="p-2.5 text-center">01:46.50</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">500 Yard Free</td><td class="p-2.5 text-center font-bold text-emerald-700">05:33.53</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">06:10.00</td><td class="p-2.5 text-center">04:53.00</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">50 Yard Back</td><td class="p-2.5 text-center font-bold text-emerald-700">00:37.33</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center">00:33.00</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-400">—</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard Back</td><td class="p-2.5 text-center font-bold text-emerald-700">01:19.11</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">01:09.00</td><td class="p-2.5 text-center">00:54.00</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">50 Yard Breast</td><td class="p-2.5 text-center font-bold text-emerald-700">00:35.17</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center">00:36.00</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-400">—</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard Breast</td><td class="p-2.5 text-center font-bold text-emerald-700">01:29.56</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">01:17.00</td><td class="p-2.5 text-center">00:59.50</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">50 Yard Fly</td><td class="p-2.5 text-center font-bold text-emerald-700">00:36.58</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center">00:30.00</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-400">—</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard Fly</td><td class="p-2.5 text-center font-bold text-emerald-700">01:18.18</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">01:03.00</td><td class="p-2.5 text-center">00:52.75</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">100 Yard IM</td><td class="p-2.5 text-center font-bold text-emerald-700">01:14.23</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center">01:09.00</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center text-slate-400">—</td></tr>
+                                <tr><td class="p-2.5 font-sans font-bold bg-slate-50/50 text-slate-900">200 Yard IM</td><td class="p-2.5 text-center font-bold text-emerald-700">02:59.88</td><td class="p-2.5 text-center text-slate-500">—</td><td class="p-2.5 text-center text-slate-400">—</td><td class="p-2.5 text-center">02:25.00</td><td class="p-2.5 text-center">01:59.00</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- END MEET CONFIRMATION (Mobile-friendly) -->
+    <div id="end-meet-modal" class="hidden fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-4">
+        <div class="absolute inset-0 bg-black/50" onclick="hideEndMeetModal()"></div>
+        <div class="relative w-full max-w-md bg-white rounded-t-xl sm:rounded-2xl shadow-xl p-4 sm:p-6">
+            <div class="mb-3">
+                <h3 id="end-meet-title" class="text-lg font-bold text-slate-900">Close Out Meet</h3>
+                <p id="end-meet-message" class="text-sm text-slate-600 mt-1">Choose how you want to close out the meet.</p>
+            </div>
+                <div class="space-y-3">
+                <button id="endmeet-clear-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-extrabold py-4 text-base rounded-xl shadow-md">Close Meet & Clear Meet Info</button>
+                <button id="endmeet-keep-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-extrabold py-4 text-base rounded-xl shadow-md">Close Meet (Keep Meet Info)</button>
+                <button id="endmeet-cancel-btn" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold py-4 text-base rounded-xl shadow-sm">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OCR Review & Import Modal -->
+    <div id="ocr-review-modal" class="hidden fixed inset-0 bg-slate-900/60 z-[115] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-5 shadow-xl space-y-4 border border-slate-200">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-bold">OCR Review & Import</h3>
+                    <p class="text-sm text-slate-500">Preview parsed heat sheet entries and import selected into the staging queue.</p>
+                </div>
+                <button onclick="appCloseOcrReviewModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg p-1.5 rounded-lg">✕</button>
+            </div>
+
+            <div class="space-y-3">
+                <div class="text-sm text-slate-600">Loaded parsed JSON entries:</div>
+                <div class="flex flex-wrap gap-2 items-center text-xs text-slate-500">
+                    <span id="ocr-review-summary">Ready to review parsed entries.</span>
+                    <button onclick="appSelectOnlyBeckKenzie()" class="bg-blue-100 text-blue-700 px-3 py-1 rounded-md">Only Beck/Kenzie</button>
+                    <button onclick="appSelectAllOcrEntries()" class="bg-slate-100 text-slate-700 px-3 py-1 rounded-md">Select All</button>
+                    <button onclick="appClearOcrSelection()" class="bg-slate-100 text-slate-700 px-3 py-1 rounded-md">Clear Selection</button>
+                </div>
+                <div id="ocr-review-list" class="bg-slate-50 border border-slate-100 rounded-lg p-2 max-h-64 overflow-y-auto text-sm"></div>
+                <div class="flex gap-2">
+                    <button onclick="appImportSelectedOcrEntries()" class="bg-emerald-600 text-white px-4 py-2 rounded-md">Import Selected</button>
+                    <button onclick="appCloseOcrReviewModal()" class="bg-slate-100 px-4 py-2 rounded-md">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="edit-staged-modal" class="hidden fixed inset-0 bg-slate-900/60 z-[116] flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto p-5 shadow-xl border border-slate-200">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 class="text-lg font-bold">Edit Staged Entry</h3>
+                    <p class="text-sm text-slate-500">Fix any imported heat-sheet values before saving.</p>
+                </div>
+                <button onclick="appCloseEditStagedItemModal()" class="text-slate-400 hover:text-slate-600 font-bold text-lg p-1.5 rounded-lg">✕</button>
+            </div>
+            <div class="grid grid-cols-1 gap-3">
+                <label class="text-xs font-bold uppercase text-slate-500">Swimmer</label>
+                <input id="edit-staged-swimmer" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                <label class="text-xs font-bold uppercase text-slate-500">Event Name</label>
+                <input id="edit-staged-event" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold uppercase text-slate-500">Event #</label>
+                        <input id="edit-staged-event-num" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold uppercase text-slate-500">Heat / Lane</label>
+                        <div class="grid grid-cols-2 gap-2 mt-1">
+                            <input id="edit-staged-heat" type="text" placeholder="Heat" class="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                            <input id="edit-staged-lane" type="text" placeholder="Lane" class="border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold uppercase text-slate-500">Seed</label>
+                        <input id="edit-staged-seed" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold uppercase text-slate-500">PR</label>
+                        <input id="edit-staged-pr" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                </div>
+                <label class="text-xs font-bold uppercase text-slate-500">Cut</label>
+                <input id="edit-staged-cut" type="text" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                <div class="flex gap-2 pt-3">
+                    <button onclick="appSaveEditedStagedItem()" class="bg-blue-600 text-white px-4 py-2 rounded-lg">Save Changes</button>
+                    <button onclick="appCloseEditStagedItemModal()" class="bg-slate-100 px-4 py-2 rounded-lg">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dynamic Script Engine -->
+    <script>
+        const cloudSheetApiUrl = 'https://script.google.com/macros/s/AKfycbyU95EWIjx_CJ38OM7iQZag_N_Md9d5ITdHvS0WBtXuf19sj9qga90quG-E8fMfHZPk/exec';
+
+        const dynamicDisciplinesCatalog = [
+            "50 Yard Free", "100 Yard Free", "200 Yard Free", "500 Yard Free",
+            "50 Yard Back", "100 Yard Back", 
+            "50 Yard Breast", "100 Yard Breast", 
+            "50 Yard Fly", "100 Yard Fly", 
+            "100 Yard IM", "200 Yard IM",
+            "200 Yard Medley Relay", "200 Yard Free Relay", "400 Yard Free Relay"
+        ];
+
+        const swimmerDatabaseMatrix = {
+            "Kenzie": {
+                "50 Yard Free": { pr: "00:31.78", gssl: "00:31.00", district: "00:29.00", state: "00:24.50" },
+                "100 Yard Free": { pr: "01:09.13", gssl: "01:12.00", district: "01:05.00", state: "00:54.20" },
+                "200 Yard Free": { pr: "—", gssl: "", district: "02:23.50", state: "01:57.80" },
+                "500 Yard Free": { pr: "—", gssl: "", district: "06:35.00", state: "05:20.00" },
+                "50 Yard Back": { pr: "00:42.50", gssl: "00:38.00", district: "", state: "" },
+                "100 Yard Back": { pr: "—", gssl: "", district: "01:16.00", state: "00:59.30" },
+                "50 Yard Breast": { pr: "00:43.68", gssl: "00:41.00", district: "", state: "" },
+                "100 Yard Breast": { pr: "—", gssl: "", district: "01:26.00", state: "01:07.70" },
+                "50 Yard Fly": { pr: "00:37.14", gssl: "00:36.00", district: "", state: "" },
+                "100 Yard Fly": { pr: "—", gssl: "", district: "01:15.00", state: "00:58.80" },
+                "100 Yard IM": { pr: "01:25.69", gssl: "01:20.00", district: "", state: "" },
+                "200 Yard IM": { pr: "—", gssl: "", district: "02:45.00", state: "02:12.80" }
+            },
+            "Beck": {
+                "50 Yard Free": { pr: "00:26.21", gssl: "00:27.00", district: "00:25.00", state: "00:21.80" },
+                "100 Yard Free": { pr: "00:58.51", gssl: "01:00.00", district: "00:57.00", state: "00:48.30" },
+                "200 Yard Free": { pr: "02:06.24", gssl: "", district: "02:10.00", state: "01:46.50" },
+                "500 Yard Free": { pr: "05:33.53", gssl: "", district: "06:10.00", state: "04:53.00" },
+                "50 Yard Back": { pr: "00:37.33", gssl: "00:33.00", district: "", state: "" },
+                "100 Yard Back": { pr: "01:19.11", gssl: "", district: "01:09.00", state: "00:54.00" },
+                "50 Yard Breast": { pr: "00:35.17", gssl: "00:36.00", district: "", state: "" },
+                "100 Yard Breast": { pr: "01:29.56", gssl: "", district: "01:17.00", state: "00:59.50" },
+                "50 Yard Fly": { pr: "00:36.58", gssl: "00:30.00", district: "", state: "" },
+                "100 Yard Fly": { pr: "01:18.18", gssl: "", district: "01:03.00", state: "00:52.75" },
+                "100 Yard IM": { pr: "01:14.23", gssl: "01:09.00", district: "", state: "" },
+                "200 Yard IM": { pr: "02:59.88", gssl: "", district: "02:25.00", state: "01:59.00" }
+            }
+        };
+
+        let currentMeetTypeState = "Summer";
+        let localStagedQueueArray = [];
+        let globalActiveTrackedItem = null;
+
+        // INIT LOAD WITH LOCALSTORAGE RESTORATION
+        window.addEventListener('DOMContentLoaded', () => {
+            const dropdown = document.getElementById('stage-event-dropdown');
+            dropdown.innerHTML = dynamicDisciplinesCatalog.map(name => `<option value="${name}">${name}</option>`).join('');
+            
+            // Restore text input parameters
+            if (localStorage.getItem('swimTracker_meetName') !== null) {
+                document.getElementById('meet-name').value = localStorage.getItem('swimTracker_meetName');
+            }
+            if (localStorage.getItem('swimTracker_meetLocation') !== null) {
+                document.getElementById('meet-location').value = localStorage.getItem('swimTracker_meetLocation');
+            }
+            if (localStorage.getItem('swimTracker_meetDate') !== null) {
+                document.getElementById('meet-date').value = localStorage.getItem('swimTracker_meetDate');
+            }
+
+            // Restore active season structure selection
+            const savedMeetType = localStorage.getItem('swimTracker_meetType');
+            if (savedMeetType) {
+                currentMeetTypeState = savedMeetType;
+            }
+            appSetMeetType(currentMeetTypeState);
+
+            // Restore queue collections
+            const savedQueue = localStorage.getItem('swimTracker_queue');
+            if (savedQueue) {
+                localStagedQueueArray = JSON.parse(savedQueue);
+                appRenderStagingOverviewTable();
+                appRefreshLiveSelectionDropdownOptions();
+            }
+
+            // Restore active focus target block
+            const savedActiveId = localStorage.getItem('swimTracker_activeId');
+            if (savedActiveId) {
+                const found = localStagedQueueArray.find(x => x.id === savedActiveId);
+                if (found) {
+                    globalActiveTrackedItem = found;
+                    document.getElementById('mobile-lineup-selector').value = savedActiveId;
+                    appRefreshLiveMetricDisplayFrame();
+                }
+            }
+
+            // Bind environment data listeners for real-time storage syncs
+            document.getElementById('meet-name').addEventListener('input', appSaveState);
+            document.getElementById('meet-location').addEventListener('input', appSaveState);
+            document.getElementById('meet-date').addEventListener('input', appSaveState);
+
+            // Additional persistence guards: save on visibility change and before unload
+            document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') appSaveState(); });
+            window.addEventListener('beforeunload', appSaveState);
+            // Periodic autosave every 30 seconds
+            setInterval(appSaveState, 30000);
+
+            appUpdateActiveBenchmarks();
+
+            // --- Tabs: simple show/hide for mobile ---
+            ['meet','heat','live'].forEach(t => {
+                const el = document.getElementById('tab-' + t);
+                if (el) el.addEventListener('click', () => appSwitchTab(t));
+            });
+
+            const savedTab = localStorage.getItem('swimTracker_activeTab') || 'meet';
+            appSwitchTab(savedTab);
+        });
+
+        // CENTRALIZED LOCALSTORAGE PERSISTENCE ENGINE
+        function appSaveState() {
+            localStorage.setItem('swimTracker_meetType', currentMeetTypeState);
+            localStorage.setItem('swimTracker_meetName', document.getElementById('meet-name').value);
+            localStorage.setItem('swimTracker_meetLocation', document.getElementById('meet-location').value);
+            localStorage.setItem('swimTracker_meetDate', document.getElementById('meet-date').value);
+            localStorage.setItem('swimTracker_queue', JSON.stringify(localStagedQueueArray));
+            localStorage.setItem('swimTracker_activeId', globalActiveTrackedItem ? globalActiveTrackedItem.id : '');
+        }
+
+        function simpleParseBrowser(ocrPages) {
+            const entries = [];
+            const knownSwimmerNames = Object.keys(swimmerDatabaseMatrix || {}).filter(Boolean);
+            const escapeRegex = text => ('' + text).replace(/[-\/\\^$*+?.()|[\]{}]/g, '$&');
+            const swimmerPatterns = knownSwimmerNames.flatMap(name => {
+                const parts = name.split(',').map(part => part.trim());
+                const last = escapeRegex(parts[0] || '');
+                const first = escapeRegex(parts[1] || '');
+                const patterns = [];
+                if (last && first) patterns.push(`\\b${last},\\s*${first}\\b`);
+                if (last) patterns.push(`\\b${last}\\b`);
+                if (first) patterns.push(`\\b${first}\\b`);
+                return patterns;
+            });
+            const swimmerNamePattern = swimmerPatterns.length
+                ? new RegExp(swimmerPatterns.join('|'), 'i')
+                : /[A-Za-z'`]+,\s*[A-Za-z'`]+/;
+            const swimmerAliasPattern = /(Zriny,?\s*(Beck|Kenzie)|Riny,?\s*(Beck|Kenzie)|[A-Za-z'`]+,\s*[A-Za-z'`]+|Beck|Kenzie)/i;
+            const eventHeaderRe = /(#\d+\s+.*?(?:Yard|Meter|Freestyle|Backstroke|Breaststroke|Butterfly|IM|Medley|Relay)|Girls\s*\d+\s*-?\s*\d+|Boys\s*\d+\s*-?\s*\d+|Heat\s*[\dOo]+(?:of|0f)?[\dOo]*|Finals?)/i;
+            const timeRe = /\d{1,3}:\d{2}\.\d{1,2}|\d{1,3}:\d{2}|\d{1,3}\.\d{2}|NT/;
+            const laneRe = /\bLane\s*([1-8])\b|^\s*([1-8])(?:\.|\s)/i;
+
+            for (const p of ocrPages) {
+                const lines = Array.isArray(p.lines)
+                    ? p.lines
+                    : (p.text || '').split(/\r?\n/);
+
+                const normalizedLines = lines
+                    .map(l => ('' + l).trim().replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/\s{2,}/g, ' '))
+                    .filter(Boolean);
+
+                let currentTitle = `Page ${p.page}`;
+                for (let i = 0; i < normalizedLines.length; i++) {
+                    const line = normalizedLines[i];
+                    const nextLine = normalizedLines[i + 1] || '';
+                    const segment = `${line} ${nextLine}`.trim();
+                    const hasSwimmer = swimmerAliasPattern.test(segment) || swimmerAliasPattern.test(line);
+
+                    if (eventHeaderRe.test(line) && !swimmerAliasPattern.test(line)) {
+                        currentTitle = line;
+                    }
+
+                    if (!hasSwimmer) continue;
+                    const text = swimmerAliasPattern.test(segment) ? segment : line;
+
+                    const laneMatch = text.match(laneRe);
+                    const lane = laneMatch ? (laneMatch[1] || laneMatch[2]) : '1';
+                    const swimmerMatches = Array.from(text.matchAll(/(Zriny,?\s*(Beck|Kenzie)|Riny,?\s*(Beck|Kenzie)|Beck|Kenzie|[A-Za-z'`]+,\s*[A-Za-z'`]+)/gi));
+                    let swimmer = 'Unknown';
+                    if (swimmerMatches.length) {
+                        const normalizedMatches = swimmerMatches.map(m => m[0].replace(/\s+/g, ' ').trim());
+                        swimmer = normalizedMatches.find(n => /^(?:Zriny,?\s*(Beck|Kenzie)|Riny,?\s*(Beck|Kenzie)|Beck|Kenzie)$/i.test(n)) || normalizedMatches[0];
+                    }
+                    const eventNameMatch = line.match(/(#\d+\s+.*?(?:Yard|Meter|Freestyle|Backstroke|Breaststroke|Butterfly|IM|Medley|Relay))/i) || nextLine.match(/(#\d+\s+.*?(?:Yard|Meter|Freestyle|Backstroke|Breaststroke|Butterfly|IM|Medley|Relay))/i);
+                    const eventName = eventNameMatch
+                        ? eventNameMatch[1].trim()
+                        : currentTitle.replace(/\s+Finals?/i, '').replace(/\s+Heat\s*[\dOo]+(?:of|0f)?[\dOo]*/i, '').trim();
+                    const relay = /Relay/i.test(currentTitle) || /Relay/i.test(text);
+                    const times = text.match(new RegExp(timeRe, 'g')) || [];
+                    const splitTimes = times.slice(1);
+                    const seed = times[0] || '—';
+                    const relayLeg = relay && splitTimes.length ? `Leg times: ${splitTimes.join(', ')}` : '';
+                    const eventNumMatch = eventName.match(/#\s*(\d{1,2})/);
+                    const eventNum = eventNumMatch ? eventNumMatch[1] : 'N/A';
+                    const heatMatch = (text.match(/Heat\s*([\dOo]+)(?:of|0f)?[\dOo]*/i) || currentTitle.match(/Heat\s*([\dOo]+)(?:of|0f)?[\dOo]*/i));
+                    const heat = heatMatch ? heatMatch[1].replace(/O/gi, '0') : '1';
+
+                    entries.push({
+                        title: eventName || currentTitle,
+                        page: p.page,
+                        lines: [text],
+                        candidates: [text],
+                        eventName: eventName || currentTitle,
+                        heat: heat,
+                        lane: lane,
+                        swimmer: swimmer,
+                        seed: seed,
+                        splitTimes: splitTimes,
+                        relay: relay,
+                        relayLeg: relayLeg,
+                        eventNum: eventNum
+                    });
+                }
+            }
+
+            if (entries.length === 0) {
+                return ocrPages.map(p => ({
+                    title: `Page ${p.page}`,
+                    page: p.page,
+                    lines: (p.text || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean),
+                    candidates: [],
+                    eventName: `Page ${p.page}`,
+                    heat: '1',
+                    lane: '1',
+                    swimmer: 'Unknown',
+                    seed: '—',
+                    splitTimes: [],
+                    relay: false,
+                    relayLeg: ''
+                }));
+            }
+            return entries;
+        }
+function appEndMeetPrompt() {
+            // Show modal with context about staged races
+            const msg = localStagedQueueArray.length > 0
+                ? `There are ${localStagedQueueArray.length} staged races. Closing the meet will clear the staged queue.`
+                : 'Close the meet now? This will clear staged queue and active selection.';
+            showEndMeetModal(msg);
+        }
+
+        // Close out the meet: clear queue/active and optionally clear meet metadata
+        function appCloseMeet(clearMeetInfo) {
+            localStagedQueueArray = [];
+            globalActiveTrackedItem = null;
+            localStorage.removeItem('swimTracker_queue');
+            localStorage.removeItem('swimTracker_activeId');
+
+            if (clearMeetInfo) {
+                localStorage.removeItem('swimTracker_meetName');
+                localStorage.removeItem('swimTracker_meetLocation');
+                localStorage.removeItem('swimTracker_meetDate');
+                localStorage.removeItem('swimTracker_meetType');
+                document.getElementById('meet-name').value = '';
+                document.getElementById('meet-location').value = '';
+                document.getElementById('meet-date').value = '';
+            }
+
+            appRenderStagingOverviewTable();
+            appRefreshLiveSelectionDropdownOptions();
+            appRefreshLiveMetricDisplayFrame();
+            appSaveState();
+            alert('Meet closed. Local staged data cleared.');
+        }
+
+        // MODAL TOGGLE CONTROLLER
+        function appToggleMatrixModal(isVisible) {
+            const modal = document.getElementById('matrix-modal');
+            if (isVisible) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // End-meet modal helper functions
+        function showEndMeetModal(message) {
+            const modal = document.getElementById('end-meet-modal');
+            const msgEl = document.getElementById('end-meet-message');
+            msgEl.innerText = message || 'Close out the meet? Choose an action.';
+            modal.classList.remove('hidden');
+
+            // wire buttons
+            document.getElementById('endmeet-clear-btn').onclick = () => { hideEndMeetModal(); appCloseMeet(true); };
+            document.getElementById('endmeet-keep-btn').onclick = () => { hideEndMeetModal(); appCloseMeet(false); };
+            document.getElementById('endmeet-cancel-btn').onclick = hideEndMeetModal;
+        }
+
+        function hideEndMeetModal() {
+            const modal = document.getElementById('end-meet-modal');
+            modal.classList.add('hidden');
+        }
+
+        // Goals import and parsing
+        async function appFetchGoalsFromUrl() {
+            const url = document.getElementById('goals-url-input').value.trim();
+            if (!url) { alert('Paste the CSV export URL first.'); return; }
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(res.statusText);
+                const csv = await res.text();
+                appParseAndStoreGoalsCsv(csv);
+                alert('Goals loaded from URL.');
+            } catch (e) {
+                alert('Failed to fetch goals: ' + e.message);
+            }
+        }
+
+        function appLoadGoalsFromFile(files) {
+            if (!files || files.length === 0) return;
+            const f = files[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                appParseAndStoreGoalsCsv(reader.result);
+                alert('Goals loaded from file.');
+            };
+            reader.readAsText(f);
+        }
+
+        function parseTimeToSeconds(t) {
+            if (!t) return null;
+            const clean = ('' + t).trim().replace(/[^\d:.]/g, '');
+            const parts = clean.split(':');
+            if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+            return parseFloat(clean) || null;
+        }
+
+        function appParseAndStoreGoalsCsv(csv) {
+            // Very small CSV parser by rows
+            const lines = csv.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            const matrix = {};
+            for (const line of lines) {
+                // naive split by comma or tab
+                const cols = line.split(/,|\t/).map(c => c.trim());
+                // Expect columns like: Swimmer,Event,Goal
+                if (cols.length < 3) continue;
+                const swimmer = cols[0];
+                const event = cols[1];
+                const goal = cols[2];
+                if (!matrix[swimmer]) matrix[swimmer] = {};
+                matrix[swimmer][event] = { raw: goal, secs: parseTimeToSeconds(goal) };
+            }
+            localStorage.setItem('swimTracker_goalsMatrix', JSON.stringify(matrix));
+            window.goalsMatrix = matrix;
+        }
+
+        // Load stored goals on startup
+        (function(){
+            try { window.goalsMatrix = JSON.parse(localStorage.getItem('swimTracker_goalsMatrix')||'{}'); } catch(e) { window.goalsMatrix = {}; }
+        })();
+
+        // Simple tab switcher: shows one of the three main sections and hides the others
+        function appSwitchTab(key) {
+            const map = {
+                meet: 'section-meet-info',
+                heat: 'section-stage-swimmer',
+                live: 'section-live-input'
+            };
+
+            Object.keys(map).forEach(k => {
+                const btn = document.getElementById('tab-' + k);
+                const sec = document.getElementById(map[k]);
+                if (!btn || !sec) return;
+                if (k === key) {
+                    btn.classList.add('bg-white', 'text-blue-600', 'shadow-md', 'ring-2', 'ring-blue-300', 'font-extrabold');
+                    btn.classList.remove('text-slate-600');
+                    btn.classList.remove('shadow-sm');
+                    sec.classList.remove('hidden');
+                } else {
+                    btn.classList.remove('bg-white', 'text-blue-600', 'shadow-md', 'ring-2', 'ring-blue-300', 'font-extrabold');
+                    btn.classList.add('text-slate-600');
+                    btn.classList.add('shadow-sm');
+                    sec.classList.add('hidden');
+                }
+            });
+            localStorage.setItem('swimTracker_activeTab', key);
+            // ensure state saved so switching apps won't lose it
+            appSaveState();
+        }
+
+        function appHandleSwimmerSelectionChange() {
+            const selection = document.getElementById('stage-swimmer').value;
+            const container = document.getElementById('friend-input-container');
+            
+            if (selection === "__custom_friend__") {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+                document.getElementById('stage-friend-name').value = "";
+            }
+            appUpdateActiveBenchmarks();
+        }
+
+        function appSetMeetType(type) {
+            currentMeetTypeState = type;
+            document.querySelectorAll('.meet-type-btn').forEach(btn => {
+                btn.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
+                btn.classList.add('text-slate-600', 'hover:text-slate-900');
+            });
+            
+            let id = 'mt-summer';
+            if(type === "High School") id = 'mt-hs';
+            if(type === "Excel") id = 'mt-excel';
+            
+            document.getElementById(id).classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+            appUpdateActiveBenchmarks();
+            appSaveState();
+        }
+
+        function appUpdateActiveBenchmarks() {
+            const swimmer = document.getElementById('stage-swimmer').value;
+            const eventName = document.getElementById('stage-event-dropdown').value;
+            
+            const prEl = document.getElementById('stage-pr');
+            const cutEl = document.getElementById('stage-cut');
+
+            if (swimmer !== "__custom_friend__" && eventName && swimmerDatabaseMatrix[swimmer]?.[eventName]) {
+                const data = swimmerDatabaseMatrix[swimmer][eventName];
+                prEl.innerText = data.pr || "—";
+                
+                if (currentMeetTypeState === "Summer") {
+                    cutEl.innerText = data.gssl ? `GSSL: ${data.gssl}` : "—";
+                } else if (currentMeetTypeState === "High School") {
+                    const dist = data.district || "—";
+                    const st = data.state || "—";
+                    cutEl.innerText = `Dist: ${dist} | St: ${st}`;
+                } else {
+                    cutEl.innerText = "—";
+                }
+            } else {
+                prEl.innerText = "—";
+                cutEl.innerText = "—";
+            }
+        }
+
+        function appHandleFileSelection(fileList) {
+            if (fileList.length === 0) return;
+
+            const spinner = document.getElementById('processing-feedback');
+            const statusEl = document.getElementById('upload-status');
+            const logBox = document.getElementById('upload-manifest-box');
+            const listUl = document.getElementById('manifest-list');
+
+            spinner.classList.remove('hidden');
+            statusEl.innerText = 'File selected. Starting OCR...';
+
+            // Attempt in-browser OCR if pdf.js and Tesseract.js are loaded
+            (async () => {
+                listUl.innerHTML = '';
+                Array.from(fileList).forEach(file => {
+                    const li = document.createElement('li');
+                    li.innerText = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+                    listUl.appendChild(li);
+                });
+                logBox.classList.remove('hidden');
+
+                if (window.pdfjsLib && window.Tesseract) {
+                    try {
+                        const parsedEvents = [];
+                        for (const file of Array.from(fileList)) {
+                            if (file.type === 'application/pdf') {
+                                statusEl.innerText = `Scanning PDF: ${file.name}`;
+                                const arrayBuf = await file.arrayBuffer();
+                                const pdf = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
+                                for (let p = 1; p <= pdf.numPages; p++) {
+                                    statusEl.innerText = `OCR page ${p} of ${pdf.numPages}...`;
+                                    const page = await pdf.getPage(p);
+                                    const viewport = page.getViewport({ scale: 2.0 });
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = Math.floor(viewport.width);
+                                    canvas.height = Math.floor(viewport.height);
+                                    const ctx = canvas.getContext('2d');
+                                    await page.render({ canvasContext: ctx, viewport }).promise;
+                                    const dataUrl = canvas.toDataURL('image/png');
+                                    const { data: { text } } = await window.Tesseract.recognize(dataUrl, 'eng');
+                                    parsedEvents.push({ page: p, text: text });
+                                }
+                            } else if (file.type.startsWith('image/')) {
+                                statusEl.innerText = `OCR image file: ${file.name}`;
+                                const dataUrl = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(file); });
+                                const { data: { text } } = await window.Tesseract.recognize(dataUrl, 'eng');
+                                parsedEvents.push({ page: 1, text: text });
+                            }
+                        }
+
+                        const events = simpleParseBrowser(parsedEvents);
+                        _parsedOcrEntries = events;
+                        renderOcrReviewList();
+                        statusEl.innerText = `OCR complete. Tap Review OCR & Import.`;
+                        spinner.classList.add('hidden');
+                        return;
+                    } catch (err) {
+                        console.error('In-browser OCR error', err);
+                        statusEl.innerText = `OCR failed: ${err.message}`;
+                        spinner.classList.add('hidden');
+                        return;
+                    }
+                }
+
+                statusEl.innerText = 'Client-side OCR not available. Use Load OCR JSON or the local OCR script.';
+                spinner.classList.add('hidden');
+            })();
+        }
+
+        function appCommitToStagingQueue() {
+            let swimmerSelection = document.getElementById('stage-swimmer').value;
+            let swimmerName = swimmerSelection;
+
+            if (swimmerSelection === "__custom_friend__") {
+                const customInput = document.getElementById('stage-friend-name').value.trim();
+                if (!customInput) {
+                    alert("Please provide a name for the friend you want to track.");
+                    return;
+                }
+                swimmerName = customInput;
+            }
+
+            const eventName = document.getElementById('stage-event-dropdown').value;
+            const eventNum = document.getElementById('stage-event-num').value.trim() || "N/A";
+            const heat = document.getElementById('stage-heat').value || "1";
+            const lane = document.getElementById('stage-lane').value || "1";
+            const seed = document.getElementById('stage-seed').value.trim() || "—";
+            const pr = document.getElementById('stage-pr').innerText;
+            const cut = document.getElementById('stage-cut').innerText;
+
+            localStagedQueueArray.push({
+                id: 'race-' + Date.now(),
+                swimmer: swimmerName, eventNum, eventName, heat, lane, seed, pr, cut
+            });
+
+            appRenderStagingOverviewTable();
+            appRefreshLiveSelectionDropdownOptions();
+            appSaveState();
+            
+            document.getElementById('stage-event-num').value = "";
+            document.getElementById('stage-seed').value = "";
+            document.getElementById('stage-friend-name').value = "";
+            document.getElementById('friend-input-container').classList.add('hidden');
+            
+            appUpdateActiveBenchmarks();
+            alert(`Staged ${swimmerName} successfully! Scroll down to Section 3 to follow the race live.`);
+        }
+
+        function appRenderStagingOverviewTable() {
+            const body = document.getElementById('queue-table-body');
+            const emptyRow = document.getElementById('empty-queue-row');
+            
+            body.querySelectorAll('tr:not(#empty-queue-row)').forEach(row => row.remove());
+
+            if (localStagedQueueArray.length === 0) {
+                emptyRow.style.display = 'table-row';
+                return;
+            }
+
+            emptyRow.style.display = 'none';
+            localStagedQueueArray.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 border-b border-slate-100 font-medium text-slate-700";
+                tr.innerHTML = `
+                    <td class="py-3 text-slate-950 font-bold">${item.swimmer}</td>
+                    <td class="py-3">Ev ${item.eventNum}: <span class="font-normal text-slate-500">${item.eventName}</span></td>
+                    <td class="py-3 text-center font-mono text-slate-600">H${item.heat} / L${item.lane}</td>
+                    <td class="py-3 text-center space-x-2">
+                        <button onclick="appOpenEditStagedItemModal('${item.id}')" class="font-bold text-blue-500 hover:text-blue-700 px-2 py-1">✎</button>
+                        <button onclick="appPurgeStagedItemById('${item.id}')" class="font-bold text-red-500 hover:text-red-700 px-2 py-1">✕</button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        let _editingStagedItemId = null;
+
+        function appPurgeStagedItemById(id) {
+            localStagedQueueArray = localStagedQueueArray.filter(x => x.id !== id);
+            if (globalActiveTrackedItem?.id === id) {
+                globalActiveTrackedItem = null;
+                appResetLiveConsoleFields();
+                appRefreshLiveMetricDisplayFrame();
+            }
+            appRenderStagingOverviewTable();
+            appRefreshLiveSelectionDropdownOptions();
+            appSaveState();
+        }
+
+        function appOpenEditStagedItemModal(id) {
+            const item = localStagedQueueArray.find(x => x.id === id);
+            if (!item) return;
+            _editingStagedItemId = id;
+            document.getElementById('edit-staged-swimmer').value = item.swimmer;
+            document.getElementById('edit-staged-event').value = item.eventName;
+            document.getElementById('edit-staged-event-num').value = item.eventNum;
+            document.getElementById('edit-staged-heat').value = item.heat;
+            document.getElementById('edit-staged-lane').value = item.lane;
+            document.getElementById('edit-staged-seed').value = item.seed;
+            document.getElementById('edit-staged-pr').value = item.pr;
+            document.getElementById('edit-staged-cut').value = item.cut;
+            document.getElementById('edit-staged-modal').classList.remove('hidden');
+        }
+
+        function appCloseEditStagedItemModal() {
+            _editingStagedItemId = null;
+            document.getElementById('edit-staged-modal').classList.add('hidden');
+        }
+
+        function appSaveEditedStagedItem() {
+            if (!_editingStagedItemId) return;
+            const item = localStagedQueueArray.find(x => x.id === _editingStagedItemId);
+            if (!item) return;
+
+            item.swimmer = document.getElementById('edit-staged-swimmer').value.trim() || item.swimmer;
+            item.eventName = document.getElementById('edit-staged-event').value.trim() || item.eventName;
+            item.eventNum = document.getElementById('edit-staged-event-num').value.trim() || item.eventNum;
+            item.heat = document.getElementById('edit-staged-heat').value.trim() || item.heat;
+            item.lane = document.getElementById('edit-staged-lane').value.trim() || item.lane;
+            item.seed = document.getElementById('edit-staged-seed').value.trim() || item.seed;
+            item.pr = document.getElementById('edit-staged-pr').value.trim() || item.pr;
+            item.cut = document.getElementById('edit-staged-cut').value.trim() || item.cut;
+
+            appRenderStagingOverviewTable();
+            appRefreshLiveSelectionDropdownOptions();
+            appSaveState();
+            appCloseEditStagedItemModal();
+        }
+
+        function appRefreshLiveSelectionDropdownOptions() {
+            const menu = document.getElementById('mobile-lineup-selector');
+            menu.innerHTML = '<option value="">— Choose Staged Swimmer From Lineup —</option>';
+            
+            localStagedQueueArray.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.id;
+                opt.innerText = `${item.swimmer} -> Ev ${item.eventNum} (${item.eventName})`;
+                if (globalActiveTrackedItem?.id === item.id) opt.selected = true;
+                menu.appendChild(opt);
+            });
+        }
+
+        function appHandleRaceSelectionChange() {
+            const val = document.getElementById('mobile-lineup-selector').value;
+            globalActiveTrackedItem = val ? localStagedQueueArray.find(x => x.id === val) : null;
+            appResetLiveConsoleFields();
+            appRefreshLiveMetricDisplayFrame();
+            appSaveState();
+        }
+
+        function appRefreshLiveMetricDisplayFrame() {
+            const clearBtn = document.getElementById('ctrl-reset-btn');
+            const syncBtn = document.getElementById('ctrl-sync-btn');
+            
+            if (!globalActiveTrackedItem) {
+                document.getElementById('active-tag').innerText = "No Active Race";
+                document.getElementById('active-swimmer-name').innerText = "Select Race Lineup";
+                document.getElementById('active-event-details').innerText = "Benchmarks load automatically when race is selected";
+                document.getElementById('active-seed-val').innerText = "--:--.--";
+                document.getElementById('active-pr-val').innerText = "--:--.--";
+                document.getElementById('active-cut-val').innerText = "--:--.--";
+                document.getElementById('celebration-banner').className = "hidden";
+                clearBtn.disabled = true;
+                syncBtn.disabled = true;
+                return;
+            }
+
+            document.getElementById('active-tag').innerText = `HEAT ${globalActiveTrackedItem.heat} • LANE ${globalActiveTrackedItem.lane}`;
+            document.getElementById('active-swimmer-name').innerText = globalActiveTrackedItem.swimmer;
+            document.getElementById('active-event-details').innerText = `Event #${globalActiveTrackedItem.eventNum} — ${globalActiveTrackedItem.eventName}`;
+            document.getElementById('active-seed-val').innerText = globalActiveTrackedItem.seed;
+            document.getElementById('active-pr-val').innerText = globalActiveTrackedItem.pr;
+            document.getElementById('active-cut-val').innerText = globalActiveTrackedItem.cut;
+
+            clearBtn.disabled = false;
+            syncBtn.disabled = false;
+        }
+
+        // --- OCR Review & Import ---
+        let _parsedOcrEntries = [];
+
+        function appOpenOcrReviewModal() {
+            document.getElementById('ocr-review-modal').classList.remove('hidden');
+        }
+
+        function appCloseOcrReviewModal() {
+            document.getElementById('ocr-review-modal').classList.add('hidden');
+            document.getElementById('ocr-json-input').value = '';
+            document.getElementById('ocr-review-list').innerHTML = '';
+            _parsedOcrEntries = [];
+        }
+
+        function appHandleOcrJsonFile(files) {
+            if (!files || files.length === 0) return;
+            const f = files[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const parsed = JSON.parse(reader.result);
+                    if (Array.isArray(parsed)) {
+                        const first = parsed[0];
+                        if (first && typeof first === 'object' && ('swimmer' in first || 'eventName' in first || 'title' in first)) {
+                            _parsedOcrEntries = parsed;
+                        } else {
+                            _parsedOcrEntries = simpleParseBrowser(parsed);
+                        }
+                    } else if (parsed.files && Array.isArray(parsed.files)) {
+                        _parsedOcrEntries = simpleParseBrowser(parsed.files);
+                    } else if (parsed.events && Array.isArray(parsed.events)) {
+                        _parsedOcrEntries = simpleParseBrowser(parsed.events);
+                    } else if (parsed.entries && Array.isArray(parsed.entries)) {
+                        _parsedOcrEntries = simpleParseBrowser(parsed.entries);
+                    } else {
+                        _parsedOcrEntries = [];
+                    }
+                    renderOcrReviewList();
+                } catch (e) {
+                    alert('Invalid JSON file: ' + e.message);
+                }
+            };
+            reader.readAsText(f);
+        }
+
+        function renderOcrReviewList() {
+            const list = document.getElementById('ocr-review-list');
+            const summary = document.getElementById('ocr-review-summary');
+            list.innerHTML = '';
+            if (!_parsedOcrEntries || _parsedOcrEntries.length === 0) {
+                if (summary) summary.innerText = 'No parsed entries found yet.';
+                list.innerHTML = '<div class="p-4 text-sm text-slate-500">No entries found in JSON.</div>';
+                return;
+            }
+
+            const beckKenzieCount = _parsedOcrEntries.reduce((count, entry) => {
+                const haystack = ((entry.swimmer || '') + ' ' + (entry.eventName || '') + ' ' + (entry.lines || []).join(' ') + ' ' + (entry.candidates || []).join(' ')).replace(/\s+/g, ' ');
+                return count + (/\b(Zriny|Riny|Beck|Kenzie)\b/i.test(haystack) ? 1 : 0);
+            }, 0);
+            if (summary) summary.innerText = `Parsed ${_parsedOcrEntries.length} entries · ${beckKenzieCount} Beck/Kenzie matches`;
+
+            _parsedOcrEntries.forEach((entry, idx) => {
+                const container = document.createElement('div');
+                container.className = 'border-b border-slate-100 py-2';
+                const title = entry.eventName || entry.title || `Entry ${idx+1}`;
+                const preview = [
+                    entry.swimmer,
+                    entry.heat ? `Heat ${entry.heat}` : '',
+                    entry.lane ? `Lane ${entry.lane}` : '',
+                    entry.seed ? `Seed ${entry.seed}` : '',
+                    entry.relayLeg || ''
+                ].filter(Boolean).join(' · ');
+
+                container.innerHTML = `
+                    <label class="flex items-start gap-3">
+                        <input type="checkbox" data-ocr-idx="${idx}" class="ocr-import-check mt-1">
+                        <div>
+                            <div class="font-bold text-slate-800">${escapeHtml(title)}</div>
+                            <div class="text-xs text-slate-600">${escapeHtml(preview || (entry.candidates && entry.candidates.join(' | ')) || (entry.lines && entry.lines.slice(0,3).join(' | ')) || '')}</div>
+                        </div>
+                    </label>
+                `;
+                list.appendChild(container);
+            });
+        }
+
+        function escapeHtml(s) { return (s+'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+        function appSelectOnlyBeckKenzie() {
+            document.querySelectorAll('.ocr-import-check').forEach(ch => {
+                const idx = parseInt(ch.getAttribute('data-ocr-idx'), 10);
+                const entry = _parsedOcrEntries[idx] || {};
+                const haystack = ((entry.swimmer || '') + ' ' + (entry.eventName || '') + ' ' + (entry.lines || []).join(' ') + ' ' + (entry.candidates || []).join(' ')).toLowerCase();
+                ch.checked = /\b(zriny|riny|beck|kenzie)\b/.test(haystack);
+            });
+        }
+
+        function appSelectAllOcrEntries() {
+            document.querySelectorAll('.ocr-import-check').forEach(ch => ch.checked = true);
+        }
+
+        function appClearOcrSelection() {
+            document.querySelectorAll('.ocr-import-check').forEach(ch => ch.checked = false);
+        }
+
+        function appImportSelectedOcrEntries() {
+            const checks = Array.from(document.querySelectorAll('.ocr-import-check')).filter(c => c.checked);
+            if (checks.length === 0) { alert('Select one or more parsed entries to import.'); return; }
+
+            checks.forEach(ch => {
+                const idx = parseInt(ch.getAttribute('data-ocr-idx'));
+                const e = _parsedOcrEntries[idx] || {};
+                const rawText = (e.candidates && e.candidates[0]) || (e.lines && e.lines.join(' ')) || '';
+                const eventName = e.eventName || e.title || 'Unknown Event';
+
+                let swimmer = e.swimmer && e.swimmer !== 'Unknown' ? e.swimmer : 'Unknown';
+                let seed = e.seed || '—';
+                let pr = '—';
+                let cut = '—';
+                let heat = e.heat || '1';
+                let lane = e.lane || '1';
+
+                if (swimmer === 'Unknown') {
+                    const nameMatch = rawText.match(/([A-Za-z]+,\s*[A-Za-z]+)/);
+                    if (nameMatch) swimmer = nameMatch[1];
+                }
+                if (!seed || seed === '—') {
+                    const timeMatch = rawText.match(/(\d{1,3}:\d{2}\.\d{1,2}|\d{1,3}:\d{2}|\d{1,3}\.\d{2}|NT)/);
+                    if (timeMatch) seed = timeMatch[1];
+                }
+                const eventMatch = eventName && !/^Page\s+\d+/i.test(eventName) ? eventName : 'Unknown Event';
+
+                localStagedQueueArray.push({
+                    id: 'race-' + Date.now().toString(36) + Math.random().toString(36).substr(2,4),
+                    swimmer: swimmer,
+                    eventNum: e.eventNum || 'N/A',
+                    eventName: eventMatch,
+                    heat: heat,
+                    lane: lane,
+                    seed: seed,
+                    pr: pr,
+                    cut: cut
+                });
+            });
+
+            appRenderStagingOverviewTable();
+            appRefreshLiveSelectionDropdownOptions();
+            appSaveState();
+            appCloseOcrReviewModal();
+            alert(`Imported ${checks.length} entries into the staging queue.`);
+        }
+
+        function appParseTimeStringToSecondsFloat(raw) {
+            if (!raw || raw === "—" || raw.trim() === "" || raw.toUpperCase() === "NT") return null;
+            try {
+                const clean = raw.replace(/[^\d:.]/g, '');
+                if (!clean) return null;
+                const parts = clean.split(':');
+                if (parts.length === 2) {
+                    return (parseFloat(parts[0]) * 60) + parseFloat(parts[1]);
+                }
+                return parseFloat(parts[0]) || null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function appAnalyzeLivePerformanceMetric() {
+            const banner = document.getElementById('celebration-banner');
+            if (!globalActiveTrackedItem) { banner.className = "hidden"; return; }
+
+            const inputTime = document.getElementById('board-final-time').value.trim();
+            const secValue = appParseTimeStringToSecondsFloat(inputTime);
+
+            if (!secValue) { banner.className = "hidden"; return; }
+
+            const prSec = appParseTimeStringToSecondsFloat(globalActiveTrackedItem.pr);
+            const seedSec = appParseTimeStringToSecondsFloat(globalActiveTrackedItem.seed);
+
+            if (prSec && secValue < prSec) {
+                const delta = (prSec - secValue).toFixed(2);
+                banner.innerText = `🚨 NEW PERSONAL RECORD! 🎉 ${globalActiveTrackedItem.swimmer} dropped -${delta}s!`;
+                banner.className = "block bg-emerald-500 text-white p-3 rounded-xl text-center font-bold text-sm shadow-md animate-pulse";
+                if (navigator.vibrate) navigator.vibrate([150, 100, 150]);
+                return;
+            }
+
+            if (seedSec && secValue < seedSec) {
+                const delta = (seedSec - secValue).toFixed(2);
+                banner.innerText = `↘️ Time Drop! Beat seed time by -${delta}s! 🥳`;
+                banner.className = "block bg-amber-500 text-white p-3 rounded-xl text-center font-bold text-sm shadow-md";
+                return;
+            }
+
+            // Goals check: show supportive message if goal exists
+            try {
+                const goals = window.goalsMatrix || {};
+                const swimmerGoals = goals[globalActiveTrackedItem.swimmer];
+                if (swimmerGoals) {
+                    const evtGoal = swimmerGoals[globalActiveTrackedItem.eventName] || swimmerGoals[globalActiveTrackedItem.eventName.replace(/\s+Yard/,' Yard')];
+                    const goalSec = evtGoal ? evtGoal.secs : null;
+                    if (goalSec) {
+                        const diff = (secValue - goalSec).toFixed(2);
+                        if (secValue <= goalSec) {
+                            banner.innerText = `🏁 Goal achieved! ${globalActiveTrackedItem.swimmer} hit the goal by ${Math.abs(diff)}s 🎉`;
+                            banner.className = "block bg-emerald-500 text-white p-3 rounded-xl text-center font-bold text-sm shadow-md animate-pulse";
+                            return;
+                        } else {
+                            const away = (secValue - goalSec).toFixed(2);
+                            banner.innerText = `Good race — you are only ${away}s away from your goal.`;
+                            banner.className = "block bg-blue-600 text-white p-3 rounded-xl text-center font-bold text-sm shadow-md";
+                            return;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Goals check failed', e);
+            }
+
+            banner.className = "hidden";
+        }
+
+        function appResetLiveConsoleFields() {
+            document.getElementById('board-final-time').value = '';
+            document.getElementById('race-final-notes').value = '';
+            document.getElementById('celebration-banner').className = "hidden";
+        }
+
+        function appSubmitCloudPayload() {
+            if (!globalActiveTrackedItem) return;
+
+            const syncBtn = document.getElementById('ctrl-sync-btn');
+            const finalTime = document.getElementById('board-final-time').value.trim();
+
+            if (!finalTime) {
+                alert("Please enter a final scoreboard time first.");
+                return;
+            }
+
+            syncBtn.disabled = true;
+            syncBtn.innerText = "Syncing...";
+
+            const params = new URLSearchParams({
+                swimmer: globalActiveTrackedItem.swimmer,
+                meetName: document.getElementById('meet-name').value.trim(),
+                location: document.getElementById('meet-location').value.trim(),
+                date: document.getElementById('meet-date').value,
+                eventNum: globalActiveTrackedItem.eventNum,
+                eventName: globalActiveTrackedItem.eventName,
+                heat: globalActiveTrackedItem.heat,
+                lane: globalActiveTrackedItem.lane,
+                seed: globalActiveTrackedItem.seed,
+                seasonalPr: globalActiveTrackedItem.pr,
+                finalTime: finalTime,
+                splitsAndNotes: document.getElementById('race-final-notes').value.trim()
+            });
+
+            fetch(`${cloudSheetApiUrl}?${params.toString()}`, { method: 'GET', mode: 'cors' })
+            .then(res => res.text())
+            .then(() => {
+                alert(`Success! Saved ${globalActiveTrackedItem.swimmer}'s data to Google Sheets.`);
+                const compId = globalActiveTrackedItem.id;
+                globalActiveTrackedItem = null;
+                localStagedQueueArray = localStagedQueueArray.filter(x => x.id !== compId);
+                
+                appResetLiveConsoleFields();
+                appRenderStagingOverviewTable();
+                appRefreshLiveSelectionDropdownOptions();
+                appRefreshLiveMetricDisplayFrame();
+                appSaveState();
+                // If we've just submitted the last staged race, offer to close out the meet via modal
+                if (localStagedQueueArray.length === 0) {
+                    showEndMeetModal('All staged races have been submitted. Would you like to close out the meet now?');
+                }
+            })
+            .catch(err => {
+                alert(`Sync Failure: ${err.toString()}`);
+                syncBtn.disabled = false;
+                syncBtn.innerText = "Sync to Google Sheet";
+            });
+        }
+    </script>
+</body>
+</html>
