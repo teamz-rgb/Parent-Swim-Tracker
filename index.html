@@ -576,6 +576,8 @@
             // Additional persistence guards: save on visibility change and before unload
             document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') appSaveState(); });
             window.addEventListener('beforeunload', appSaveState);
+            window.addEventListener('pagehide', appSaveState);
+            window.addEventListener('unload', appSaveState);
             // Periodic autosave every 30 seconds
             setInterval(appSaveState, 30000);
 
@@ -1415,9 +1417,10 @@ function appEndMeetPrompt() {
                 appRefreshLiveSelectionDropdownOptions();
                 appRefreshLiveMetricDisplayFrame();
                 appSaveState();
-                // If we've just submitted the last staged race, offer to close out the meet via modal
+                // Do not auto-close the meet after the last submitted race
+                // Instead, let the user explicitly choose when to close it
                 if (localStagedQueueArray.length === 0) {
-                    showEndMeetModal('All staged races have been submitted. Would you like to close out the meet now?');
+                    alert('All staged races have been submitted. The meet remains open until you choose to close it.');
                 }
             })
             .catch(err => {
