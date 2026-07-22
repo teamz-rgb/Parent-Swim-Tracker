@@ -795,28 +795,79 @@ function appEndMeetPrompt() {
         function parseTimeToSeconds(t) {
             if (!t) return null;
             const clean = ('' + t).trim().replace(/[^\d:.]/g, '');
-            const parts = clean.split(':');
-            if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
-            return parseFloat(clean) || null;
+            if (!clean) return null;
+            const parts = clean.split(':').map(p => parseFloat(p)).filter(p => !Number.isNaN(p));
+            if (parts.length === 3) {
+                return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+            }
+            if (parts.length === 2) {
+                return (parts[0] * 60) + parts[1];
+            }
+            return parts[0] || null;
+        }
+
+        function normalizeGoalEventName(eventName) {
+            return eventName
+                .replace(/\bBackstroke\b/i, 'Back')
+                .replace(/\bBreaststroke\b/i, 'Breast')
+                .replace(/\bButterfly\b/i, 'Fly')
+                .replace(/\bFreestyle\b/i, 'Free')
+                .replace(/\bMedley Relay\b/i, 'Medley Relay')
+                .replace(/\bFree Relay\b/i, 'Free Relay')
+                .replace(/\s+/g, ' ')
+                .trim();
         }
 
         function appParseAndStoreGoalsCsv(csv) {
-            // Very small CSV parser by rows
-            const lines = csv.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            const lines = csv.split(/\r?\n/);
             const matrix = {};
-            for (const line of lines) {
-                // naive split by comma or tab
+            let currentSwimmer = null;
+            let loadedCount = 0;
+
+            for (const rawLine of lines) {
+                const line = rawLine.trim();
+                if (!line) continue;
+                if (/^\[mm\]:ss\.000/i.test(line)) continue;
+                if (/^enter hrs too/i.test(line)) continue;
+                if (/^(swimmer|event|goals?)/i.test(line)) continue;
+
                 const cols = line.split(/,|\t/).map(c => c.trim());
-                // Expect columns like: Swimmer,Event,Goal
-                if (cols.length < 3) continue;
-                const swimmer = cols[0];
-                const event = cols[1];
-                const goal = cols[2];
-                if (!matrix[swimmer]) matrix[swimmer] = {};
-                matrix[swimmer][event] = { raw: goal, secs: parseTimeToSeconds(goal) };
+                if (cols.length === 0) continue;
+
+                const firstCell = cols[0] || '';
+                const swimmerRow = firstCell.match(/^(Kenzie|Beck)\b/i);
+                if (swimmerRow) {
+                    currentSwimmer = firstCell.replace(/\s*\(.*\)$/, '').trim();
+                    if (!matrix[currentSwimmer]) matrix[currentSwimmer] = {};
+                    continue;
+                }
+
+                if (!currentSwimmer) continue;
+
+                const eventParts = cols.slice(0, 2).filter(Boolean);
+                const rawEventName = eventParts.join(' ').replace(/\s+/g, ' ').trim();
+                if (!rawEventName) continue;
+                const eventName = normalizeGoalEventName(rawEventName);
+
+                const candidates = cols.slice(2)
+                    .map(cell => cell.trim())
+                    .filter(cell => cell && cell !== ',' && !/^(pr|ac|sc|gssl|district|state)$/i.test(cell));
+
+                const bestCandidate = candidates
+                    .map(value => ({ raw: value, secs: parseTimeToSeconds(value) }))
+                    .filter(entry => entry.secs !== null && Number.isFinite(entry.secs))
+                    .sort((a, b) => a.secs - b.secs)[0];
+
+                if (!bestCandidate) continue;
+
+                if (!matrix[currentSwimmer]) matrix[currentSwimmer] = {};
+                matrix[currentSwimmer][eventName] = bestCandidate;
+                loadedCount += 1;
             }
+
             localStorage.setItem('swimTracker_goalsMatrix', JSON.stringify(matrix));
             window.goalsMatrix = matrix;
+            alert(`Goals loaded: ${loadedCount} entries for ${Object.keys(matrix).length} swimmer(s).`);
         }
 
         // Load stored goals on startup
@@ -1304,11 +1355,14 @@ function appEndMeetPrompt() {
             try {
                 const clean = raw.replace(/[^\d:.]/g, '');
                 if (!clean) return null;
-                const parts = clean.split(':');
-                if (parts.length === 2) {
-                    return (parseFloat(parts[0]) * 60) + parseFloat(parts[1]);
+                const parts = clean.split(':').map(p => parseFloat(p)).filter(p => !Number.isNaN(p));
+                if (parts.length === 3) {
+                    return (parts[0] * 3600) + (parts[1] * 60) + parts[2];
                 }
-                return parseFloat(parts[0]) || null;
+                if (parts.length === 2) {
+                    return (parts[0] * 60) + parts[1];
+                }
+                return parts[0] || null;
             } catch (e) {
                 return null;
             }
@@ -1346,7 +1400,8 @@ function appEndMeetPrompt() {
                 const goals = window.goalsMatrix || {};
                 const swimmerGoals = goals[globalActiveTrackedItem.swimmer];
                 if (swimmerGoals) {
-                    const evtGoal = swimmerGoals[globalActiveTrackedItem.eventName] || swimmerGoals[globalActiveTrackedItem.eventName.replace(/\s+Yard/,' Yard')];
+                    const currentEventName = normalizeGoalEventName(globalActiveTrackedItem.eventName || '');
+                const evtGoal = swimmerGoals[currentEventName] || swimmerGoals[currentEventName.replace(/\s+Yard/i,' Yard')];
                     const goalSec = evtGoal ? evtGoal.secs : null;
                     if (goalSec) {
                         const diff = (secValue - goalSec).toFixed(2);
